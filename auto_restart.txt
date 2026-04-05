@@ -1,0 +1,22 @@
+@echo off
+title Air Quality Server
+color 0A
+cd /d "%~dp0"
+
+echo ================================================
+echo   AIR QUALITY IoT SERVER - Auto Restart Mode
+echo ================================================
+echo.
+
+:START
+echo [%TIME%] Dang khoi dong server...
+call venv\Scripts\activate
+
+:LOOP
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+echo.
+echo [%TIME%] Server da dung. Tu dong khoi dong lai sau 3 giay...
+echo          (Nhan Ctrl+C de thoat hoan toan)
+echo.
+timeout /t 3 /nobreak >nul
+goto LOOP
