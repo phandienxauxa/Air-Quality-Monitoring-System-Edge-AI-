@@ -1,1 +1,1 @@
-# Air-Quality-Monitoring-System-Edge-AI-
+# Air-Quality-Monitoring-System-Edge-AI
