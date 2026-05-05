@@ -1,139 +1,163 @@
-# Air-Quality-Monitoring-System-Edge-AI
+# Air-Quality-Monitoring-System — Edge AI
 
-  Real-time indoor air quality monitoring and prediction system using ESP32 as an IoT gateway and a FastAPI backend with Edge AI capabilities.
+Real-time indoor air quality monitoring system using Renesas CK-RA6M5 as the sensor node, ESP32 as the IoT gateway, and a FastAPI backend with Edge AI prediction capabilities.
 
-  > **Institution:** Ho Chi Minh City University of Technology
+> **Institution:** Ho Chi Minh City University of Technology (HCMUT)
 
-  ---
+---
 
-  ## Features
+## Architecture
 
-  - **Real-time monitoring** of IAQ, VOC, eCO₂, eToH, Temperature, and Humidity via WebSocket
-  - **5-minute predictive forecasts** powered by Edge AI models
-  - **Interactive dashboard** with live charts, trend indicators, donut gauges, and event logs
-  - **Alert engine** with severity levels (Critical, Warning, Info)
-  - **Data history** with configurable time ranges: 1h, 24h, 7d, 30d
-  - **Device status** monitoring for connected ESP32 nodes
-  - **Light/Dark theme** with persistence
-  - **REST API** with auto-generated docs at `/docs`
+```
+CK-RA6M5 (Sensor Node)          ESP32 (Gateway)          PC (Backend)
+┌─────────────────────┐          ┌─────────────┐          ┌──────────────────┐
+│ ZMOD4410 — IAQ/VOC  │  UART    │             │WebSocket │  FastAPI Server  │
+│ HS3001   — Temp/Hum │─────────▶│  main.cpp   │─────────▶│  /ws/ingest      │
+│ Edge AI  — Predict  │ 115200   │  PlatformIO │          │  SQLite DB       │
+└─────────────────────┘          └─────────────┘          │  /ws/realtime    │
+                                                           └────────┬─────────┘
+                                                                    │ WebSocket
+                                                                    ▼
+                                                           ┌──────────────────┐
+                                                           │  index.html      │
+                                                           │  Dashboard       │
+                                                           └──────────────────┘
+```
 
-  ---
+---
 
-  ## Architecture
+## Features
 
-  ESP32 Sensors
-       │
-       │  WebSocket (/ws/ingest)
-       ▼
-  FastAPI Backend  ──── SQLite DB
-       │
-       │  WebSocket (/ws/realtime)
-       ▼
-  Web Dashboard (index.html)
+- **Real-time monitoring** of IAQ, TVOC, eCO₂, eToH, Temperature, Humidity via WebSocket
+- **5-minute AI prediction** powered by Edge AI model running on CK-RA6M5
+- **Renesas 5-level IAQ rating** (Rất tốt / Tốt / Trung bình / Kém / Rất kém)
+- **Interactive dashboard** with live charts, trend indicators, donut gauges, event logs
+- **Alert engine** with 3 severity levels (Critical, Warning, Info)
+- **Data history** with time ranges: 1h, 24h, 7d, 30d
+- **Device status** monitoring (Online / Warning / Offline detection)
+- **Docker support** — chạy backend không cần cài Python
 
-  **Backend** (`app/`): FastAPI + Uvicorn, async SQLite via aiosqlite, WebSocket dual-channel design.
-  **Frontend** (`index.html`, `js/`, `css/`): Vanilla JS + Chart.js, connects directly to the backend WebSocket.
-  **Simulator** (`simulator/`): Generates mock ESP32 sensor readings for development and testing.
+---
 
-  ---
+## Project Structure
 
-  ## Tech Stack
+```
+Air-Quality-Monitoring-System-Edge-AI-/
+├── app/                        # FastAPI backend
+│   ├── main.py                 # Entry point
+│   ├── config.py               # Thresholds & config
+│   ├── schemas.py              # Pydantic data validation
+│   ├── database.py             # SQLite async setup
+│   ├── crud.py                 # DB operations
+│   ├── api_routes.py           # REST API endpoints
+│   ├── alert_engine.py         # Alert logic
+│   ├── status_monitor.py       # Online/Offline detection
+│   ├── websocket_ingest.py     # ESP32 data ingestion
+│   └── websocket_realtime.py   # Dashboard streaming
+├── esp32/                      # ESP32 PlatformIO firmware
+│   ├── src/main.cpp            # UART → WebSocket bridge
+│   └── platformio.ini
+├── js/                         # Frontend JavaScript
+│   ├── app.js                  # WebSocket & logic
+│   ├── charts.js               # Chart.js visualization
+│   ├── ui.js                   # DOM updates
+│   └── mock.js                 # Mock data (fallback)
+├── css/                        # Styles
+├── simulator/                  # Mock ESP32 data generator
+│   └── send_mock_data.py
+├── test/                       # Automated test suite
+│   └── run_tests.py
+├── data/                       # SQLite database (auto-created)
+├── index.html                  # Dashboard
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── start_server.bat            # Windows quick-start
+```
 
-  | Layer | Technology |
-  |---|---|
-  | Backend | Python 3.10+, FastAPI 0.111, Uvicorn, Pydantic v2 |
-  | Database | SQLite (via aiosqlite) |
-  | Real-time | WebSockets |
-  | Frontend | HTML5, CSS3, JavaScript, Chart.js |
-  | Hardware | ESP32 (IAQ, VOC, eCO₂, eToH, Temp, Humidity sensors) |
+---
 
-  ---
+## Tech Stack
 
-  ## Getting Started
+| Layer | Technology |
+|---|---|
+| Sensor Node | Renesas CK-RA6M5, ZMOD4410 (IAQ/VOC), HS3001 (Temp/Hum), FSP (e2 Studio) |
+| IoT Gateway | ESP32 DevKit, PlatformIO, ArduinoJson, WebSockets library |
+| Backend | Python 3.11, FastAPI 0.111, Uvicorn, Pydantic v2 |
+| Database | SQLite (via aiosqlite) |
+| Real-time | WebSockets (dual-channel: ingest + realtime) |
+| Frontend | HTML5, Vanilla JS, Chart.js |
+| Container | Docker, Docker Compose |
 
-  ### Requirements
+---
 
-  - Ubuntu (native or WSL2 on Windows)
-  - Python 3.10+
+## Monitored Metrics
 
-  ### Installation
+| Metric | Unit | Scale | Description |
+|---|---|---|---|
+| IAQ | rating | Renesas 1.0–5.0 | Indoor Air Quality composite index |
+| TVOC | mg/m³ | 0–15 | Total Volatile Organic Compounds |
+| eCO₂ | ppm | 400–5000 | Equivalent CO₂ concentration |
+| eToH | mg/m³ | 0–500 | Ethanol concentration |
+| Temperature | °C | 15–45 | Ambient temperature (HS3001) |
+| Humidity | %RH | 20–95 | Relative humidity (HS3001) |
 
-  ```bash
-  # 1. Clone the repository
-  git clone https://github.com/phandienxauxa/Air-Quality-Monitoring-System-Edge-AI-.git
-  cd Air-Quality-Monitoring-System-Edge-AI-
+### Renesas IAQ Rating Scale
 
-  # 2. Create and activate virtual environment
-  python3 -m venv venv
-  source venv/bin/activate
+| IAQ Rating | Level | Air Quality | TVOC (mg/m³) |
+|:---:|:---:|:---:|:---:|
+| ≤ 1.9 | Level 1 | Rất tốt (Very Good) | < 0.3 |
+| 2.0–2.9 | Level 2 | Tốt (Good) | 0.3–1.0 |
+| 3.0–3.9 | Level 3 | Trung bình (Medium) | 1.0–3.0 |
+| 4.0–4.9 | Level 4 | Kém (Poor) | 3.0–10.0 |
+| ≥ 5.0 | Level 5 | Rất kém (Bad) | > 10.0 |
 
-  # 3. Install dependencies
-  pip install -r requirements.txt
+---
 
-  Running the Server
+## Quick Start
 
-  uvicorn app.main:app --host 0.0.0.0 --port 8000
+### Option A — Docker (recommended, không cần cài Python)
 
-  The SQLite database is initialized automatically on first startup.
+```bash
+docker compose up --build
+```
 
-  On Windows, you can also use the provided batch script:
-  start_server.bat
+### Option B — Manual (Windows)
 
-  Verify
+```cmd
+py -3.11 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-  ┌──────────────────────────────────┬─────────────────────────────────────────┐
-  │             Endpoint             │               Description               │
-  ├──────────────────────────────────┼─────────────────────────────────────────┤
-  │ http://localhost:8000/health     │ Health check — returns {"status": "ok"} │
-  ├──────────────────────────────────┼─────────────────────────────────────────┤
-  │ http://localhost:8000/docs       │ Interactive API documentation           │
-  ├──────────────────────────────────┼─────────────────────────────────────────┤
-  │ http://localhost:8000/index.html │ Live monitoring dashboard               │
-  └──────────────────────────────────┴─────────────────────────────────────────┘
+---
 
-  ---
-  WebSocket Endpoints
+## API Endpoints
 
-  ┌──────────────┬────────────────────┬─────────────────────────────────────┐
-  │   Endpoint   │     Direction      │             Description             │
-  ├──────────────┼────────────────────┼─────────────────────────────────────┤
-  │ /ws/ingest   │ ESP32 → Server     │ Sensor data ingestion from hardware │
-  ├──────────────┼────────────────────┼─────────────────────────────────────┤
-  │ /ws/realtime │ Server → Dashboard │ Live data streaming to frontend     │
-  └──────────────┴────────────────────┴─────────────────────────────────────┘
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Server health check |
+| `/api/current` | GET | Latest sensor reading |
+| `/api/history` | GET | Historical data (`?range=1h&metric=iaq_index`) |
+| `/api/status` | GET | Device online/offline status |
+| `/api/logs` | GET | Event logs (`?limit=20`) |
+| `/ws/ingest` | WS | ESP32 → Server data ingestion |
+| `/ws/realtime` | WS | Server → Dashboard live stream |
+| `/docs` | GET | Auto-generated API documentation |
 
-  ---
-  Development
+---
 
-  Run the simulator in a separate terminal to generate mock sensor data without hardware:
+## Hardware Connections
 
-  source venv/bin/activate
-  python3 simulator/
+| ESP32 Pin | Direction | CK-RA6M5 Pin |
+|:---:|:---:|:---:|
+| GPIO16 (RX2) | ← | P707 (UART3 TX) |
+| GPIO17 (TX2) | → | P706 (UART3 RX) |
+| GND | ↔ | GND |
 
-  Tests are located in the test/ directory.
+---
 
-  ---
-  Monitored Metrics
+## License
 
-  ┌─────────────┬───────┬────────────────────────────────────┐
-  │   Metric    │ Unit  │            Description             │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ IAQ         │ index │ Indoor Air Quality composite index │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ VOC         │ ppb   │ Volatile Organic Compounds         │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ eCO₂        │ ppm   │ Equivalent CO₂ concentration       │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ eToH        │ index │ Ethanol index                      │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ Temperature │ °C    │ Ambient temperature                │
-  ├─────────────┼───────┼────────────────────────────────────┤
-  │ Humidity    │ % RH  │ Relative humidity                  │
-  └─────────────┴───────┴────────────────────────────────────┘
-
-  ---
-  License
-
-  This project is developed for academic purposes at Ho Chi Minh City University of Technology.
-
-  ---
+Developed for academic purposes at Ho Chi Minh City University of Technology (EE3031).

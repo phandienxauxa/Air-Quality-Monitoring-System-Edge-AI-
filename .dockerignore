@@ -1,0 +1,37 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Database (sẽ được tạo tự động khi chạy)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend (không cần trong container)
+index.html
+js/
+css/
+logo.png
+
+# Dev tools
+.vscode/
+.git/
+.gitignore
+
+# Test & simulator (không cần trong production)
+test/
+simulator/
+
+# ESP32 firmware (không liên quan đến Python backend)
+esp32/
+
+# Docs & scripts
+*.md
+*.bat
+*.txt
