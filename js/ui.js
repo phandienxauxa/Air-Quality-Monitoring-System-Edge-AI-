@@ -8,34 +8,30 @@ const UI = (() => {
 
   const $ = id => document.getElementById(id);
 
-  // ── Ngưỡng Sensirion chuẩn ───────────────────────────────
-  // IAQ  : < 100 Tốt | 100-200 Trung bình | > 200 Kém
-  // VOC  : < 150 Tốt | 150-250 Trung bình | > 250 Kém
-  // eCO₂ : < 800 Tốt | 800-1200 Trung bình | > 1200 Kém
-  // eToH : < 100 Tốt | 100-200 Trung bình | > 200 Kém
-  // Temp : < 28°C Tốt | 28-35 Trung bình | > 35 Kém
-  // Hum  : 40-70% Tốt | ngoài khoảng đó → Trung bình
+  // ── Ngưỡng Renesas 5 mức ─────────────────────────────────
+  // IAQ  : < 2.0 Rất tốt | 2.0–2.9 Tốt | 3.0–3.9 Trung bình | 4.0–4.9 Kém | ≥ 5.0 Rất kém
+  // TVOC : < 0.3 Rất tốt | 0.3–1.0 Tốt | 1.0–3.0 Trung bình | 3.0–10.0 Kém | > 10.0 Rất kém
+  // eCO₂ : < 800 Tốt | 800–1200 Trung bình | > 1200 Kém
+  // eToH : < 100 Tốt | 100–200 Trung bình | > 200 Kém
 
-  function iaqLevel(v) { return v < 100 ? 'good' : v < 200 ? 'warn' : 'bad'; }
-  function vocLevel(v) { return v < 150 ? 'good' : v < 250 ? 'warn' : 'bad'; }
+  // IAQ: Level 1-2 → green | Level 3 → yellow | Level 4-5 → red
+  function iaqLevel(v) { return v < 3.0 ? 'good' : v < 4.0 ? 'warn' : 'bad'; }
+  // TVOC mg/m³: Level 1-2 → green | Level 3 → yellow | Level 4-5 → red
+  function vocLevel(v) { return v < 1.0 ? 'good' : v < 3.0 ? 'warn' : 'bad'; }
   function eco2Level(v){ return v < 800 ? 'good' : v < 1200 ? 'warn' : 'bad'; }
   function etohLevel(v){ return v < 100 ? 'good' : v < 200 ? 'warn' : 'bad'; }
-
-  function levelToLabel(lvl) {
-    return lvl === 'good' ? 'Tốt' : lvl === 'warn' ? 'Trung bình' : 'Kém';
-  }
 
   function levelToColor(lvl) {
     return lvl === 'good' ? 'var(--good)' : lvl === 'warn' ? 'var(--warn)' : 'var(--bad)';
   }
 
-  // calcAQLabel dựa trên IAQ (chỉ số tổng hợp đại diện)
-  function calcAQLabel(iaq) { return levelToLabel(iaqLevel(iaq)); }
-
+  // 5 nhãn Renesas — dùng trực tiếp từ payload
   function aqColor(label) {
+    if (label === 'Rất tốt')    return 'var(--good)';
     if (label === 'Tốt')        return 'var(--good)';
     if (label === 'Trung bình') return 'var(--warn)';
     if (label === 'Kém')        return 'var(--bad)';
+    if (label === 'Rất kém')    return 'var(--bad)';
     return 'var(--accent)';
   }
 
@@ -64,18 +60,18 @@ const UI = (() => {
 
   // ── KPI cards ─────────────────────────────────────────────
   function updateKPI(data) {
-    // IAQ
+    // IAQ — Renesas 1.0–5.0, hiển thị 2 chữ số thập phân
     if ($('val-iaq')) {
       const lvl = iaqLevel(data.iaq_index);
-      $('val-iaq').textContent = data.iaq_index.toFixed(0);
+      $('val-iaq').textContent = data.iaq_index.toFixed(2);
       $('val-iaq').style.color = levelToColor(lvl);
     }
     Charts.updateMiniBar('miniIAQ', data.iaq_index);
 
-    // VOC — thang Sensirion 0-500
+    // VOC — TVOC mg/m³, hiển thị 2 chữ số thập phân
     if ($('val-voc')) {
       const lvl = vocLevel(data.voc_index);
-      $('val-voc').textContent = data.voc_index.toFixed(0);
+      $('val-voc').textContent = data.voc_index.toFixed(2);
       $('val-voc').style.color = levelToColor(lvl);
     }
     Charts.updateMiniBar('miniVOC', data.voc_index);
@@ -102,7 +98,7 @@ const UI = (() => {
     }
     setBar('bar-hum', humBarPct(data.humidity), 'var(--accent)');
 
-    // eToH — thang Sensirion 0-500
+    // eToH — Sensirion 0-500
     if ($('val-etoh') && data.etoh !== undefined) {
       const lvl = etohLevel(data.etoh);
       $('val-etoh').textContent = data.etoh.toFixed(0);
@@ -110,8 +106,8 @@ const UI = (() => {
     }
     Charts.updateMiniBar('miniEToH', data.etoh ?? 0);
 
-    // AQ summary card
-    const aqLabel = calcAQLabel(data.iaq_index);
+    // AQ summary card — dùng nhãn trực tiếp từ payload (5 mức Renesas)
+    const aqLabel = data.air_quality_label_now || 'Tốt';
     if ($('val-aq'))  { $('val-aq').textContent = aqLabel; $('val-aq').style.color = aqColor(aqLabel); }
     if ($('aq-icon')) $('aq-icon').style.color = aqColor(aqLabel);
   }
@@ -141,24 +137,31 @@ const UI = (() => {
     if ($('trendIcon')) { $('trendIcon').textContent = trendIcon; $('trendIcon').style.color = trendColor; }
     if ($('trendText')) { $('trendText').textContent = trendText; $('trendText').style.color = trendColor; }
 
-    // Alert banner — 3 trạng thái: bad / warn / good
+    // Alert banner — 5 mức Renesas
     const banner = $('alertBanner');
     const textEl = $('alertText');
     if (!banner || !textEl) return;
 
-    if (nowLabel === 'Kém' || predLabel === 'Kém') {
+    if (nowLabel === 'Rất kém' || predLabel === 'Rất kém') {
+      banner.className = 'alert-banner bad';
+      textEl.textContent = nowLabel === 'Rất kém'
+        ? '⛔ Không khí RẤT KÉM (Level 5) — cần rời khỏi khu vực ngay!'
+        : '⛔ Dự báo không khí sẽ RẤT KÉM trong 5 phút tới';
+    } else if (nowLabel === 'Kém' || predLabel === 'Kém') {
       banner.className = 'alert-banner bad';
       textEl.textContent = nowLabel === 'Kém'
-        ? '⚠ Chất lượng không khí đang ở mức KÉM — cần thông gió ngay!'
+        ? '⚠ Chất lượng không khí KÉM (Level 4) — cần thông gió ngay!'
         : '⚠ Dự báo chất lượng không khí sẽ KÉM trong 5 phút tới';
-    } else if (nowLabel === 'Trung bình' || (nowLabel === 'Trung bình' && trend > 0)) {
+    } else if (nowLabel === 'Trung bình') {
       banner.className = 'alert-banner warn';
       textEl.textContent = trend > 0
-        ? '⚠ Chất lượng không khí có xu hướng xấu đi'
-        : 'Chất lượng không khí ở mức trung bình';
+        ? '⚠ Không khí ở mức Trung bình (Level 3) và đang xấu đi'
+        : 'Chất lượng không khí ở mức Trung bình (Level 3)';
     } else {
       banner.className = 'alert-banner good';
-      textEl.textContent = '✓ Chất lượng không khí bình thường';
+      textEl.textContent = nowLabel === 'Rất tốt'
+        ? '✓ Không khí Rất tốt (Level 1) — Clean Hygienic Air'
+        : '✓ Chất lượng không khí Tốt (Level 2)';
     }
   }
 

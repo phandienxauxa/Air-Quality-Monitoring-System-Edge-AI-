@@ -27,11 +27,12 @@ DEVICE_ID        = "esp32_gateway_01"
 # ── State của simulator ───────────────────────────────────────
 class SimState:
     def __init__(self):
-        self.iaq   = 70.0
-        self.voc   = 2.0
+        self.iaq   = 2.5    # Renesas IAQ Rating 1.0–5.0+
+        self.voc   = 0.8    # TVOC mg/m³ (Renesas)
         self.eco2  = 580.0
         self.temp  = 29.0
         self.hum   = 65.0
+        self.etoh  = 50.0
         self.tick  = 0
 
     def walk(self, val, step, lo, hi):
@@ -46,22 +47,26 @@ class SimState:
         spike = random.random() < 0.03
 
         iaq_step = 6 if (bad_cycle or spike) else 2
-        self.iaq  = self.walk(self.iaq,  iaq_step, 0,   200)
-        self.voc  = self.walk(self.voc,  0.2,      0,   10)
-        self.eco2 = self.walk(self.eco2, 25 if bad_cycle else 10, 400, 2000)
-        self.temp = self.walk(self.temp, 0.2,      15,  45)
-        self.hum  = self.walk(self.hum,  0.8,      20,  95)
+        self.iaq  = self.walk(self.iaq,  0.4 if bad_cycle else 0.1, 1.0, 6.0)
+        self.voc  = self.walk(self.voc,  0.5 if bad_cycle else 0.1, 0.0, 15.0)
+        self.eco2 = self.walk(self.eco2, 25 if bad_cycle else 10,   400, 2000)
+        self.temp = self.walk(self.temp, 0.2,                        15,  45)
+        self.hum  = self.walk(self.hum,  0.8,                        20,  95)
+        self.etoh = self.walk(self.etoh, 4.0 if bad_cycle else 1.5,  0,  500)
 
-        tvoc_raw = round(self.iaq * 1.8 + random.uniform(0, 5))
+        tvoc_raw = round(self.voc * 100 + random.uniform(0, 5))
         eco2_raw = round(self.eco2 + random.uniform(-5, 5))
 
+        # 5 mức theo Renesas IAQ Rating
         def aq_label(iaq):
-            if iaq < 50:  return "Tốt"
-            if iaq < 100: return "Trung bình"
-            return "Kém"
+            if iaq < 2.0: return "Rất tốt"    # Level 1: ≤ 1.9
+            if iaq < 3.0: return "Tốt"          # Level 2: 2.0–2.9
+            if iaq < 4.0: return "Trung bình"   # Level 3: 3.0–3.9
+            if iaq < 5.0: return "Kém"           # Level 4: 4.0–4.9
+            return "Rất kém"                     # Level 5: ≥ 5.0
 
-        trend = 1 if self.iaq > 90 else (-1 if self.iaq < 40 else 0)
-        pred_iaq = max(0, min(200, self.iaq + trend * 12))
+        trend = 1 if self.iaq > 3.5 else (-1 if self.iaq < 2.0 else 0)
+        pred_iaq = max(1.0, min(6.0, self.iaq + trend * 0.5))
 
         # Thỉnh thoảng mô phỏng lỗi thiết bị
         error_code = 1 if random.random() < 0.02 else 0
@@ -77,11 +82,12 @@ class SimState:
             "filtered_eco2":              round(eco2_raw * 0.98),
             "normalized_tvoc":            round(min(1.0, tvoc_raw / 300), 4),
             "normalized_eco2":            round(min(1.0, eco2_raw / 2000), 4),
-            "iaq_index":                  round(self.iaq, 1),
+            "iaq_index":                  round(self.iaq, 2),
             "voc_index":                  round(self.voc, 2),
             "eco2_ppm":                   round(self.eco2),
             "air_quality_label_now":      aq_label(self.iaq),
             "air_quality_label_pred_5m":  aq_label(pred_iaq),
+            "etoh":                       round(self.etoh, 1),
             "battery_status":             "external_power",
             "network_status":             "good",
             "error_code":                 error_code,

@@ -68,7 +68,7 @@ function handleIncomingData(data) {
   checkThresholds(data);
 }
 
-// ── Threshold alerts (ngưỡng Sensirion chuẩn) ───────────────
+// ── Threshold alerts — thang Renesas 5 mức ──────────────────
 const alertCooldown = {};
 
 function checkThresholds(data) {
@@ -85,17 +85,25 @@ function checkThresholds(data) {
   maybeAlert('eco2_high', data.eco2_ppm > 1200, 'critical', 'eco2_high',
     `eCO₂ vượt ngưỡng 1200 ppm — giá trị: ${data.eco2_ppm} ppm`);
 
-  // IAQ: > 200 → critical
-  maybeAlert('iaq_bad', data.iaq_index > 200, 'critical', 'iaq_bad',
-    `IAQ vượt ngưỡng 200 — giá trị: ${data.iaq_index.toFixed(0)}`);
+  // IAQ ≥ 5.0 → Level 5: Rất kém → critical
+  maybeAlert('iaq_critical', data.iaq_index >= 5.0, 'critical', 'iaq_critical',
+    `IAQ Level 5 — Rất kém (Unacceptable): ${data.iaq_index.toFixed(1)}`);
 
-  // IAQ: 100–200 → warning
-  maybeAlert('iaq_warn', data.iaq_index > 100 && data.iaq_index <= 200, 'warning', 'iaq_warn',
-    `IAQ ở mức trung bình — giá trị: ${data.iaq_index.toFixed(0)}`);
+  // IAQ 4.0–4.9 → Level 4: Kém → warning
+  maybeAlert('iaq_high', data.iaq_index >= 4.0 && data.iaq_index < 5.0, 'warning', 'iaq_high',
+    `IAQ Level 4 — Kém (Poor): ${data.iaq_index.toFixed(1)}`);
 
-  // VOC: > 250 → warning (Sensirion 0-500, baseline 100)
-  maybeAlert('voc_high', data.voc_index > 250, 'warning', 'voc_high',
-    `VOC index bất thường — giá trị: ${data.voc_index.toFixed(0)}`);
+  // IAQ 3.0–3.9 → Level 3: Trung bình → info
+  maybeAlert('iaq_warn', data.iaq_index >= 3.0 && data.iaq_index < 4.0, 'info', 'iaq_warn',
+    `IAQ Level 3 — Trung bình (Medium): ${data.iaq_index.toFixed(1)}`);
+
+  // TVOC > 10.0 mg/m³ → Level 5 → critical
+  maybeAlert('voc_critical', data.voc_index > 10.0, 'critical', 'voc_critical',
+    `TVOC Level 5 — Rất kém: ${data.voc_index.toFixed(2)} mg/m³`);
+
+  // TVOC 3.0–10.0 mg/m³ → Level 4 → warning
+  maybeAlert('voc_high', data.voc_index > 3.0 && data.voc_index <= 10.0, 'warning', 'voc_high',
+    `TVOC Level 4 — Kém: ${data.voc_index.toFixed(2)} mg/m³`);
 
   // eToH: > 200 → warning
   if (data.etoh !== undefined) {
@@ -103,8 +111,11 @@ function checkThresholds(data) {
       `eToH index bất thường — giá trị: ${data.etoh.toFixed(0)}`);
   }
 
+  // Dự báo 5 phút
+  maybeAlert('aq_very_bad_pred', data.air_quality_label_pred_5m === 'Rất kém', 'critical', 'aq_pred_very_bad',
+    'Dự báo 5 phút: chất lượng sẽ RẤT KÉM (Level 5)');
   maybeAlert('aq_bad_pred', data.air_quality_label_pred_5m === 'Kém', 'warning', 'aq_pred_bad',
-    'Dự báo chất lượng không khí sẽ KÉM trong 5 phút tới');
+    'Dự báo 5 phút: chất lượng sẽ KÉM (Level 4)');
 }
 
 // ── History ──────────────────────────────────────────────────

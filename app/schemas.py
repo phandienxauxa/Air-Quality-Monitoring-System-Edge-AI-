@@ -74,15 +74,15 @@ class SensorPayload(BaseModel):
     @field_validator("iaq_index")
     @classmethod
     def validate_iaq(cls, v: float) -> float:
-        if not (0 <= v <= 500):
-            raise ValueError(f"iaq_index ngoài phạm vi [0, 500]: {v}")
+        if not (0 <= v <= 10):
+            raise ValueError(f"iaq_index ngoài phạm vi Renesas [0, 10]: {v}")
         return v
 
     @field_validator("voc_index")
     @classmethod
     def validate_voc(cls, v: float) -> float:
-        if not (0 <= v <= 500):
-            raise ValueError(f"voc_index ngoài phạm vi [0, 500]: {v}")
+        if not (0 <= v <= 50):
+            raise ValueError(f"voc_index (TVOC mg/m³) ngoài phạm vi [0, 50]: {v}")
         return v
 
     @field_validator("eco2_ppm")

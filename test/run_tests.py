@@ -67,11 +67,12 @@ def make_valid_payload(overrides: dict = {}) -> dict:
         "filtered_eco2":              605,
         "normalized_tvoc":            0.42,
         "normalized_eco2":            0.31,
-        "iaq_index":                  78.0,
-        "voc_index":                  2.4,
+        "iaq_index":                  2.8,
+        "voc_index":                  0.75,
         "eco2_ppm":                   612,
-        "air_quality_label_now":      "Trung bình",
-        "air_quality_label_pred_5m":  "Trung bình",
+        "air_quality_label_now":      "Tốt",
+        "air_quality_label_pred_5m":  "Tốt",
+        "etoh":                       48.5,
         "battery_status":             "external_power",
         "network_status":             "good",
         "error_code":                 0,
@@ -123,7 +124,7 @@ async def test_TC06_invalid_payloads():
          make_valid_payload({"normalized_tvoc": 1.5})),
 
         ("TC06e", "AQ label không hợp lệ",
-         make_valid_payload({"air_quality_label_now": "Ổn"})),
+         make_valid_payload({"air_quality_label_now": "Trung bình khá"})),
 
         ("TC06f", "JSON rỗng",
          {}),
@@ -349,10 +350,11 @@ async def test_TC09_alert_engine():
 
     # Gửi payload nguy hiểm
     bad_payload = make_valid_payload({
-        "eco2_ppm":                  1200,
-        "iaq_index":                 120.0,
-        "air_quality_label_now":     "Kém",
-        "air_quality_label_pred_5m": "Kém",
+        "eco2_ppm":                  1300,
+        "iaq_index":                 5.2,
+        "voc_index":                 11.0,
+        "air_quality_label_now":     "Rất kém",
+        "air_quality_label_pred_5m": "Rất kém",
         "error_code":                1,
     })
 
