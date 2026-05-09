@@ -118,7 +118,6 @@ Air-Quality-Monitoring-System-Edge-AI-/
 ├── docker-compose.yml          # Volume + healthcheck + env
 ├── .dockerignore
 ├── requirements.txt
-└── start_server.bat            # Windows quick-start (auto-restart)
 ```
 
 ---
