@@ -1,7 +1,11 @@
 # config.py — Cấu hình trung tâm của server
 
 import os as _os
-DB_PATH = _os.path.join(_os.path.expanduser("~"), "air_quality_data", "air_quality.db")
+
+DB_PATH = _os.environ.get(
+    "DB_PATH",
+    _os.path.join(_os.path.expanduser("~"), "air_quality_data", "air_quality.db"),
+)
 
 HOST = "0.0.0.0"
 PORT = 8000

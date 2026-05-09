@@ -13,11 +13,6 @@ data/
 *.db-wal
 *.db-shm
 
-# Frontend (không cần trong container)
-index.html
-js/
-css/
-logo.png
 
 # Dev tools
 .vscode/

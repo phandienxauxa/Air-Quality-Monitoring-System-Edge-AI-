@@ -18,16 +18,22 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy chỉ code backend (không cần frontend, test, simulator)
+# Copy backend
 COPY app/ ./app/
+
+# Copy frontend — main.py serve các file này qua StaticFiles + FileResponse
+COPY index.html ./
+COPY css/ ./css/
+COPY js/ ./js/
+COPY logo.png ./
 
 # Tạo thư mục chứa SQLite database (sẽ được mount từ host)
 RUN mkdir -p data
 
 EXPOSE 8000
 
-# Biến môi trường
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    DB_PATH=/app/data/air_quality.db
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
