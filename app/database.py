@@ -24,34 +24,35 @@ async def init_db():
                 timestamp                 TEXT    NOT NULL,
                 device_id                 TEXT    NOT NULL,
                 raw_tvoc                  INTEGER,
-                raw_eco2                  INTEGER,
+                raw_eco2                  REAL,
                 temperature               REAL,
                 humidity                  REAL,
                 filtered_tvoc             INTEGER,
-                filtered_eco2             INTEGER,
+                filtered_eco2             REAL,
                 normalized_tvoc           REAL,
                 normalized_eco2           REAL,
                 iaq_index                 REAL,
                 voc_index                 REAL,
-                eco2_ppm                  INTEGER,
+                eco2_ppm                  REAL,
                 air_quality_label_now     TEXT,
                 air_quality_label_pred_5m TEXT,
                 battery_status            TEXT,
                 network_status            TEXT,
                 error_code                INTEGER DEFAULT 0,
-                etoh                      REAL    DEFAULT 0
+                etoh                      REAL    DEFAULT 0,
+                rel_iaq                   REAL    DEFAULT 0,
+                predicted_iaq             REAL    DEFAULT 0
             )
         """)
 
-        # Migration an toàn: nếu DB cũ chưa có cột etoh thì ALTER TABLE
-        # Lệnh này sẽ bị bỏ qua (OperationalError) nếu cột đã tồn tại
-        try:
-            await db.execute(
-                "ALTER TABLE sensor_data ADD COLUMN etoh REAL DEFAULT 0"
-            )
-            print("[DB] Migration: đã thêm cột etoh vào sensor_data")
-        except Exception:
-            pass  # Cột đã tồn tại — bình thường
+        for col, typ in [("etoh", "REAL"), ("rel_iaq", "REAL"), ("predicted_iaq", "REAL")]:
+            try:
+                await db.execute(
+                    f"ALTER TABLE sensor_data ADD COLUMN {col} {typ} DEFAULT 0"
+                )
+                print(f"[DB] Migration: đã thêm cột {col}")
+            except Exception:
+                pass  # Cột đã tồn tại — bình thường
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS device_status (

@@ -12,14 +12,14 @@ const UI = (() => {
   // IAQ  : < 2.0 Rất tốt | 2.0–2.9 Tốt | 3.0–3.9 Trung bình | 4.0–4.9 Kém | ≥ 5.0 Rất kém
   // TVOC : < 0.3 Rất tốt | 0.3–1.0 Tốt | 1.0–3.0 Trung bình | 3.0–10.0 Kém | > 10.0 Rất kém
   // eCO₂ : < 800 Tốt | 800–1200 Trung bình | > 1200 Kém
-  // eToH : < 100 Tốt | 100–200 Trung bình | > 200 Kém
+  // eToH : < 1.0 Tốt | 1.0–3.0 Trung bình | > 3.0 Kém  (mg/m³, cùng thang TVOC)
 
   // IAQ: Level 1-2 → green | Level 3 → yellow | Level 4-5 → red
   function iaqLevel(v) { return v < 3.0 ? 'good' : v < 4.0 ? 'warn' : 'bad'; }
   // TVOC mg/m³: Level 1-2 → green | Level 3 → yellow | Level 4-5 → red
   function vocLevel(v) { return v < 1.0 ? 'good' : v < 3.0 ? 'warn' : 'bad'; }
   function eco2Level(v){ return v < 800 ? 'good' : v < 1200 ? 'warn' : 'bad'; }
-  function etohLevel(v){ return v < 100 ? 'good' : v < 200 ? 'warn' : 'bad'; }
+  function etohLevel(v){ return v < 0.1 ? 'good' : v < 0.3 ? 'warn' : 'bad'; }
 
   function levelToColor(lvl) {
     return lvl === 'good' ? 'var(--good)' : lvl === 'warn' ? 'var(--warn)' : 'var(--bad)';
@@ -60,62 +60,65 @@ const UI = (() => {
 
   // ── KPI cards ─────────────────────────────────────────────
   function updateKPI(data) {
-    // IAQ — Renesas 1.0–5.0, hiển thị 2 chữ số thập phân
+    // IAQ — Renesas 1.0–5.0, hiển thị 4 chữ số thập phân
     if ($('val-iaq')) {
       const lvl = iaqLevel(data.iaq_index);
-      $('val-iaq').textContent = data.iaq_index.toFixed(2);
+      $('val-iaq').textContent = data.iaq_index.toFixed(4);
       $('val-iaq').style.color = levelToColor(lvl);
     }
     Charts.updateMiniBar('miniIAQ', data.iaq_index);
 
-    // VOC — TVOC mg/m³, hiển thị 2 chữ số thập phân
+    // tVOC — mg/m³: ưu tiên field tvoc (raw từ RA6M5), fallback voc_index
+    const tvocVal = data.tvoc ?? data.voc_index;
     if ($('val-voc')) {
-      const lvl = vocLevel(data.voc_index);
-      $('val-voc').textContent = data.voc_index.toFixed(2);
+      const lvl = vocLevel(tvocVal);
+      $('val-voc').textContent = tvocVal.toFixed(4);
       $('val-voc').style.color = levelToColor(lvl);
     }
-    Charts.updateMiniBar('miniVOC', data.voc_index);
+    Charts.updateMiniBar('miniVOC', tvocVal);
 
-    // ECO2
-    if ($('val-eco2')) {
-      const lvl = eco2Level(data.eco2_ppm);
-      $('val-eco2').textContent = data.eco2_ppm;
-      $('val-eco2').style.color = levelToColor(lvl);
+    // rel_iaq — relative IAQ từ ZMOD4410
+    if ($('val-rliaq') && data.rel_iaq != null) {
+      $('val-rliaq').textContent = data.rel_iaq.toFixed(4);
+      $('val-rliaq').style.color = 'var(--accent)';
     }
-    Charts.updateMiniBar('miniECO2', data.eco2_ppm);
+    Charts.updateMiniBar('miniRELIAQ', data.rel_iaq ?? 0);
 
-    // Temp
-    if ($('val-temp')) {
-      $('val-temp').textContent = data.temperature.toFixed(1);
-      $('val-temp').style.color = 'var(--bad)';
+    // predicted_iaq — AI dự báo IAQ
+    if ($('val-pred') && data.predicted_iaq != null) {
+      const lvl = iaqLevel(data.predicted_iaq);
+      $('val-pred').textContent = data.predicted_iaq.toFixed(4);
+      $('val-pred').style.color = levelToColor(lvl);
     }
-    setBar('bar-temp', tempBarPct(data.temperature), 'var(--bad)');
+    Charts.updateMiniBar('miniPRED', data.predicted_iaq ?? 0);
 
-    // Hum
-    if ($('val-hum')) {
-      $('val-hum').textContent = data.humidity.toFixed(1);
-      $('val-hum').style.color = 'var(--accent)';
-    }
-    setBar('bar-hum', humBarPct(data.humidity), 'var(--accent)');
-
-    // eToH — Sensirion 0-500
-    if ($('val-etoh') && data.etoh !== undefined) {
+    // eToH — raw mg/m³
+    if ($('val-etoh') && data.etoh != null) {
       const lvl = etohLevel(data.etoh);
-      $('val-etoh').textContent = data.etoh.toFixed(0);
+      $('val-etoh').textContent = data.etoh.toFixed(4);
       $('val-etoh').style.color = levelToColor(lvl);
     }
     Charts.updateMiniBar('miniEToH', data.etoh ?? 0);
 
-    // AQ summary card — dùng nhãn trực tiếp từ payload (5 mức Renesas)
-    const aqLabel = data.air_quality_label_now || 'Tốt';
-    if ($('val-aq'))  { $('val-aq').textContent = aqLabel; $('val-aq').style.color = aqColor(aqLabel); }
-    if ($('aq-icon')) $('aq-icon').style.color = aqColor(aqLabel);
+    // Nhiệt độ
+    if ($('val-temp') && data.temperature != null) {
+      $('val-temp').textContent = data.temperature.toFixed(2);
+      $('val-temp').style.color = 'var(--bad)';
+    }
+    Charts.updateMiniBar('miniTEMP', data.temperature ?? 0);
+
+    // Độ ẩm
+    if ($('val-hum') && data.humidity != null) {
+      $('val-hum').textContent = data.humidity.toFixed(2);
+      $('val-hum').style.color = 'var(--accent)';
+    }
+    Charts.updateMiniBar('miniHUM', data.humidity ?? 0);
   }
 
   // ── Single large donut ────────────────────────────────────
   function updateDonuts(data) {
     Charts.updateDonut('iaq',  data.iaq_index);
-    Charts.updateDonut('voc',  data.voc_index);
+    Charts.updateDonut('voc',  data.tvoc ?? data.voc_index);
     Charts.updateDonut('eco2', data.eco2_ppm);
     Charts.updateDonut('etoh', data.etoh ?? 0);
   }
@@ -168,7 +171,7 @@ const UI = (() => {
   // ── Detail stats ──────────────────────────────────────────
   function updateDetail(data) {
     if ($('sd-etoh') && data.etoh !== undefined) {
-      $('sd-etoh').textContent = data.etoh.toFixed(0);
+      $('sd-etoh').textContent = data.etoh.toFixed(4);
       setBadge('sd-etoh-badge', etohLevel(data.etoh));
     }
     if ($('sd-tvoc-raw'))  $('sd-tvoc-raw').textContent  = data.raw_tvoc;
@@ -177,6 +180,8 @@ const UI = (() => {
     if ($('sd-eco2-fil'))  $('sd-eco2-fil').textContent  = data.filtered_eco2 + ' ppm';
     if ($('sd-tvoc-norm')) $('sd-tvoc-norm').textContent = data.normalized_tvoc?.toFixed(3) ?? '—';
     if ($('sd-eco2-norm')) $('sd-eco2-norm').textContent = data.normalized_eco2?.toFixed(3) ?? '—';
+    if ($('sd-temp'))      $('sd-temp').textContent      = data.temperature?.toFixed(4) + ' °C' ?? '—';
+    if ($('sd-hum'))       $('sd-hum').textContent       = data.humidity?.toFixed(4) + ' %' ?? '—';
     if ($('sd-battery'))   $('sd-battery').textContent   = data.battery_status;
     if ($('sd-network'))   $('sd-network').textContent   = data.network_status;
     if ($('sd-error'))     $('sd-error').textContent     = data.error_code === 0 ? 'OK' : `ERR ${data.error_code}`;

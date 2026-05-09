@@ -11,7 +11,9 @@ const MockData = (() => {
     eco2:       650,
     temp:       29.4,
     hum:        67.2,
-    etoh:       95,    // eToH index 0-500
+    etoh:       0.08,  // eToH mg/m³ raw (thang 0–0.5)
+    rel_iaq:    50.0,  // relative IAQ từ ZMOD4410
+    pred_iaq:   2.5,   // AI predicted IAQ (thang 1–6)
     tvoc_raw:   142,
     eco2_raw:   650,
     aqNow:      'Tốt',
@@ -41,12 +43,14 @@ const MockData = (() => {
     state.tick++;
     const badCycle = Math.sin(state.tick / 30) > 0.7;
 
-    state.iaq  = walk(state.iaq,  badCycle ? 0.4 : 0.1,  1.0,  6.0);
-    state.voc  = walk(state.voc,  badCycle ? 0.5 : 0.1,  0.0,  15.0);
-    state.eco2 = walk(state.eco2, badCycle ? 25  : 10,   400,  2000);
-    state.temp = walk(state.temp, 0.2,                    15,   45);
-    state.hum  = walk(state.hum,  0.8,                    20,   95);
-    state.etoh = walk(state.etoh, badCycle ? 12  : 4,    0,    500);
+    state.iaq     = walk(state.iaq,     badCycle ? 0.4  : 0.1,  1.0,  6.0);
+    state.voc     = walk(state.voc,     badCycle ? 0.5  : 0.1,  0.0,  15.0);
+    state.eco2    = walk(state.eco2,    badCycle ? 25   : 10,   400,  2000);
+    state.temp    = walk(state.temp,    0.2,                     15,   45);
+    state.hum     = walk(state.hum,     0.8,                     20,   95);
+    state.etoh    = walk(state.etoh,    badCycle ? 0.05 : 0.01,  0.0,  0.5);
+    state.rel_iaq = walk(state.rel_iaq, badCycle ? 15   : 5,     0,    500);
+    state.pred_iaq = walk(state.pred_iaq, badCycle ? 0.4 : 0.1, 1.0,  6.0);
 
     state.tvoc_raw = Math.round(state.voc * 100 + Math.random() * 5);
     state.eco2_raw = Math.round(state.eco2 + Math.random() * 10 - 5);
@@ -60,16 +64,18 @@ const MockData = (() => {
       device_id:                 'esp32_gateway_01',
       raw_tvoc:                  state.tvoc_raw,
       raw_eco2:                  state.eco2_raw,
-      temperature:               +state.temp.toFixed(1),
-      humidity:                  +state.hum.toFixed(1),
+      temperature:               +state.temp.toFixed(4),
+      humidity:                  +state.hum.toFixed(4),
       filtered_tvoc:             Math.round(state.tvoc_raw * 0.97),
       filtered_eco2:             Math.round(state.eco2_raw * 0.98),
       normalized_tvoc:           +(state.tvoc_raw / 1000).toFixed(3),
       normalized_eco2:           +(state.eco2_raw / 2000).toFixed(3),
-      iaq_index:                 +state.iaq.toFixed(2),
-      voc_index:                 +state.voc.toFixed(2),
-      eco2_ppm:                  Math.round(state.eco2),
-      etoh:                      +state.etoh.toFixed(1),
+      iaq_index:                 +state.iaq.toFixed(4),
+      voc_index:                 +state.voc.toFixed(4),
+      eco2_ppm:                  +state.eco2.toFixed(4),
+      etoh:                      +state.etoh.toFixed(4),
+      rel_iaq:                   +state.rel_iaq.toFixed(4),
+      predicted_iaq:             +state.pred_iaq.toFixed(4),
       air_quality_label_now:     state.aqNow,
       air_quality_label_pred_5m: state.aqPred,
       battery_status:            'external_power',
@@ -84,12 +90,14 @@ const MockData = (() => {
     const n = counts[rangeKey] || 60;
 
     const metricConfig = {
-      iaq:  { base: 2.5,  step: 0.15, min: 1.0,  max: 6.0 },
-      voc:  { base: 0.8,  step: 0.1,  min: 0.0,  max: 15.0 },
-      eco2: { base: 650,  step: 25,   min: 400,  max: 2000 },
-      etoh: { base: 90,   step: 12,   min: 0,    max: 500 },
-      temp: { base: 29,   step: 0.3,  min: 15,   max: 45 },
-      hum:  { base: 65,   step: 1.5,  min: 20,   max: 95 },
+      iaq:          { base: 2.5,  step: 0.15, min: 1.0, max: 6.0 },
+      voc:          { base: 0.8,  step: 0.1,  min: 0.0, max: 15.0 },
+      eco2:         { base: 650,  step: 25,   min: 400, max: 2000 },
+      etoh:         { base: 0.08, step: 0.02, min: 0.0, max: 0.5 },
+      temp:         { base: 29,   step: 0.3,  min: 15,  max: 45 },
+      hum:          { base: 65,   step: 1.5,  min: 20,  max: 95 },
+      rel_iaq:      { base: 50,   step: 8,    min: 0,   max: 500 },
+      predicted_iaq:{ base: 2.5,  step: 0.15, min: 1.0, max: 6.0 },
     };
 
     const cfg = metricConfig[metric] || metricConfig.iaq;

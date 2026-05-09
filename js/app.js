@@ -23,7 +23,11 @@ let ws = null;
 function initWebSocket() {
   ws = new WebSocket(CONFIG.WS_URL);
 
-  ws.onopen = () => console.log('[WS] Connected to backend');
+  ws.onopen = () => {
+    console.log('[WS] Connected to backend');
+    UI.updateNodeStatus(true);
+    fetchCurrent();
+  };
 
   ws.onmessage = (event) => {
     try {
@@ -52,7 +56,7 @@ function handleIncomingData(data) {
   // Truyền ISO timestamp trực tiếp — charts.js tự format
   Charts.updateIAQ(data.timestamp, data.iaq_index);
   if (data.etoh !== undefined) Charts.updateEToH(data.timestamp, data.etoh);
-  Charts.updateVOC(data.timestamp, data.voc_index, data.eco2_ppm);
+  Charts.updateVOC(data.timestamp, data.tvoc ?? data.voc_index, data.eco2_ppm);
   Charts.updateEnv(data.timestamp, data.temperature, data.humidity);
 
   clearTimeout(offlineTimer);
@@ -105,10 +109,10 @@ function checkThresholds(data) {
   maybeAlert('voc_high', data.voc_index > 3.0 && data.voc_index <= 10.0, 'warning', 'voc_high',
     `TVOC Level 4 — Kém: ${data.voc_index.toFixed(2)} mg/m³`);
 
-  // eToH: > 200 → warning
+  // eToH: > 0.3 mg/m³ → warning
   if (data.etoh !== undefined) {
-    maybeAlert('etoh_high', data.etoh > 200, 'warning', 'etoh_high',
-      `eToH index bất thường — giá trị: ${data.etoh.toFixed(0)}`);
+    maybeAlert('etoh_high', data.etoh > 0.3, 'warning', 'etoh_high',
+      `eToH bất thường — giá trị: ${data.etoh.toFixed(6)}`);
   }
 
   // Dự báo 5 phút
@@ -116,6 +120,19 @@ function checkThresholds(data) {
     'Dự báo 5 phút: chất lượng sẽ RẤT KÉM (Level 5)');
   maybeAlert('aq_bad_pred', data.air_quality_label_pred_5m === 'Kém', 'warning', 'aq_pred_bad',
     'Dự báo 5 phút: chất lượng sẽ KÉM (Level 4)');
+}
+
+// ── Fetch current data from DB (fallback khi WS chưa có data) ──
+async function fetchCurrent() {
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res   = await fetch(`${CONFIG.API_BASE}/current`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.sensor) handleIncomingData(json.sensor);
+  } catch (_) { /* server chưa sẵn sàng, bỏ qua */ }
 }
 
 // ── History ──────────────────────────────────────────────────
@@ -165,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.initLogs(MockData.generateInitialLogs());
   bindEvents();
   loadHistory();
+  fetchCurrent();
   initWebSocket();
   console.log('[App] Dashboard initialized — WebSocket mode active');
 });

@@ -18,10 +18,12 @@ const Charts = (() => {
 
   // Fixed colors per metric (minichart & large chart border)
   const METRIC_COLOR = {
-    iaq:  ACCENT,
-    voc:  WARN,
-    eco2: INFO,
-    etoh: GOOD,
+    iaq:    ACCENT,
+    voc:    WARN,
+    eco2:   INFO,
+    etoh:   GOOD,
+    rliaq:  '#60a5fa',   // blue — rel_iaq
+    pred:   '#fb923c',   // orange — predicted_iaq
   };
 
   function getGridColor() {
@@ -136,10 +138,13 @@ const Charts = (() => {
   }
 
   function initAllMiniCharts() {
-    initMiniBar('miniIAQ',  METRIC_COLOR.iaq);
-    initMiniBar('miniVOC',  METRIC_COLOR.voc);
-    initMiniBar('miniECO2', METRIC_COLOR.eco2);
-    initMiniBar('miniEToH', METRIC_COLOR.etoh);
+    initMiniBar('miniIAQ',    METRIC_COLOR.iaq);
+    initMiniBar('miniVOC',    METRIC_COLOR.voc);
+    initMiniBar('miniEToH',   METRIC_COLOR.etoh);
+    initMiniBar('miniRELIAQ', METRIC_COLOR.rliaq);
+    initMiniBar('miniPRED',   METRIC_COLOR.pred);
+    initMiniBar('miniTEMP',   BAD);
+    initMiniBar('miniHUM',    ACCENT);
   }
 
   // ── 4 SMALL DONUTS (2×2 grid) ────────────────────────────
@@ -147,10 +152,10 @@ const Charts = (() => {
   const _donutCurrent = { iaq: 0, voc: 0, eco2: 0, etoh: 0 };
 
   const DONUT_META = {
-    iaq:  { label: 'IAQ Index', max: 500,  unit: '',     good: 100, warn: 200,  canvasId: 'donutIAQ',  valId: 'donut-val-iaq',  badgeId: 'donut-badge-iaq'  },
-    voc:  { label: 'VOC Index', max: 500,  unit: '',     good: 150, warn: 250,  canvasId: 'donutVOC',  valId: 'donut-val-voc',  badgeId: 'donut-badge-voc'  },
+    iaq:  { label: 'IAQ Index', max: 6,    unit: '',     good: 3.0, warn: 4.0,  canvasId: 'donutIAQ',  valId: 'donut-val-iaq',  badgeId: 'donut-badge-iaq'  },
+    voc:  { label: 'tVOC',      max: 12,   unit: ' mg/m³', good: 1.0, warn: 3.0, canvasId: 'donutVOC',  valId: 'donut-val-voc',  badgeId: 'donut-badge-voc'  },
     eco2: { label: 'eCO₂',     max: 2000, unit: ' ppm', good: 800, warn: 1200, canvasId: 'donutECO2', valId: 'donut-val-eco2', badgeId: 'donut-badge-eco2' },
-    etoh: { label: 'eToH',     max: 500,  unit: '',     good: 100, warn: 200,  canvasId: 'donutEToH', valId: 'donut-val-etoh', badgeId: 'donut-badge-etoh' },
+    etoh: { label: 'eToH',     max: 0.5,  unit: '',     good: 0.1, warn: 0.3,  canvasId: 'donutEToH', valId: 'donut-val-etoh', badgeId: 'donut-badge-etoh' },
   };
 
   function getDonutColor(metric, val) {
@@ -203,7 +208,7 @@ const Charts = (() => {
 
     const valEl   = document.getElementById(meta.valId);
     const badgeEl = document.getElementById(meta.badgeId);
-    if (valEl)   valEl.textContent = metric === 'eco2' ? Math.round(val) : val.toFixed(metric === 'etoh' ? 2 : 1);
+    if (valEl)   valEl.textContent = metric === 'eco2' ? Math.round(val) : val.toFixed(4);
     if (badgeEl) {
       const lvl = val < meta.good ? 'TỐT' : val < meta.warn ? 'TRUNG BÌNH' : 'KÉM';
       const cls = val < meta.good ? '' : val < meta.warn ? 'warn' : 'bad';
@@ -229,9 +234,8 @@ const Charts = (() => {
     if (!chartIAQ) return;
     const ds = chartIAQ.data;
     ds.labels.push(fmtTime(isoTs));
-    ds.datasets[0].data.push(+iaqVal.toFixed(1));
-    // border color vẫn dynamic theo giá trị (chart lớn)
-    ds.datasets[0].borderColor = iaqVal < 100 ? GOOD : iaqVal < 200 ? WARN : BAD;
+    ds.datasets[0].data.push(+iaqVal.toFixed(4));
+    ds.datasets[0].borderColor = iaqVal < 3.0 ? GOOD : iaqVal < 4.0 ? WARN : BAD;
     if (ds.labels.length > MAX_REALTIME_POINTS) { ds.labels.shift(); ds.datasets[0].data.shift(); }
     chartIAQ.update('none');
   }
@@ -253,8 +257,8 @@ const Charts = (() => {
     if (!chartEToH) return;
     const ds = chartEToH.data;
     ds.labels.push(fmtTime(isoTs));
-    ds.datasets[0].data.push(+etohVal.toFixed(1));
-    ds.datasets[0].borderColor = etohVal < 100 ? GOOD : etohVal < 200 ? WARN : BAD;
+    ds.datasets[0].data.push(+etohVal.toFixed(4));
+    ds.datasets[0].borderColor = etohVal < 0.1 ? GOOD : etohVal < 0.3 ? WARN : BAD;
     if (ds.labels.length > MAX_REALTIME_POINTS) { ds.labels.shift(); ds.datasets[0].data.shift(); }
     chartEToH.update('none');
   }
@@ -269,7 +273,7 @@ const Charts = (() => {
       data: {
         labels: [],
         datasets: [
-          { label: 'VOC Index', data: [], borderColor: METRIC_COLOR.voc, backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4, yAxisID: 'yVOC' },
+          { label: 'tVOC Index', data: [], borderColor: METRIC_COLOR.voc, backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4, yAxisID: 'yVOC' },
           { label: 'eCO₂ (ppm)', data: [], borderColor: METRIC_COLOR.eco2, backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4, yAxisID: 'yCO2', borderDash: [4, 2] }
         ]
       },
@@ -282,7 +286,7 @@ const Charts = (() => {
         },
         scales: {
           x:    { grid: { color: GRID }, ticks: { color: TEXT_SEC, maxTicksLimit: 8, maxRotation: 0 } },
-          yVOC: { position: 'left',  grid: { color: GRID }, ticks: { color: METRIC_COLOR.voc }, title: { display: true, text: 'VOC', color: METRIC_COLOR.voc, font: { size: 10 } } },
+          yVOC: { position: 'left',  grid: { color: GRID }, ticks: { color: METRIC_COLOR.voc }, title: { display: true, text: 'tVOC', color: METRIC_COLOR.voc, font: { size: 10 } } },
           yCO2: { position: 'right', grid: { display: false }, ticks: { color: METRIC_COLOR.eco2 }, title: { display: true, text: 'ppm', color: METRIC_COLOR.eco2, font: { size: 10 } } },
         }
       }
@@ -293,8 +297,8 @@ const Charts = (() => {
     if (!chartVOC) return;
     const ds = chartVOC.data;
     ds.labels.push(fmtTime(isoTs));
-    ds.datasets[0].data.push(+voc.toFixed(1));
-    ds.datasets[1].data.push(Math.round(eco2));
+    ds.datasets[0].data.push(+voc.toFixed(4));
+    ds.datasets[1].data.push(+eco2.toFixed(4));
     if (ds.labels.length > MAX_REALTIME_POINTS) { ds.labels.shift(); ds.datasets.forEach(d => d.data.shift()); }
     chartVOC.update('none');
   }
@@ -333,8 +337,8 @@ const Charts = (() => {
     if (!chartEnv) return;
     const ds = chartEnv.data;
     ds.labels.push(fmtTime(isoTs));
-    ds.datasets[0].data.push(+temp.toFixed(1));
-    ds.datasets[1].data.push(+hum.toFixed(1));
+    ds.datasets[0].data.push(+temp.toFixed(2));
+    ds.datasets[1].data.push(+hum.toFixed(2));
     if (ds.labels.length > MAX_REALTIME_POINTS) { ds.labels.shift(); ds.datasets.forEach(d => d.data.shift()); }
     chartEnv.update('none');
   }
@@ -346,7 +350,7 @@ const Charts = (() => {
 
   const metricMeta = {
     iaq:  { label: 'IAQ Index', color: METRIC_COLOR.iaq,  unit: '' },
-    voc:  { label: 'VOC Index', color: METRIC_COLOR.voc,  unit: '' },
+    voc:  { label: 'tVOC Index', color: METRIC_COLOR.voc,  unit: ' mg/m³' },
     eco2: { label: 'eCO₂',     color: METRIC_COLOR.eco2, unit: ' ppm' },
     etoh: { label: 'eToH',     color: METRIC_COLOR.etoh, unit: '' },
     temp: { label: 'Nhiệt độ', color: BAD,               unit: ' °C' },

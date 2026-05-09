@@ -5,10 +5,13 @@ Khởi động:
     uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 """
 
+import os
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.database import init_db
 from app.api_routes import router
@@ -66,3 +69,20 @@ async def ws_ingest(websocket: WebSocket):
 async def ws_realtime(websocket: WebSocket):
     """Dashboard kết nối vào đây để nhận dữ liệu realtime."""
     await ws_realtime_handler(websocket)
+
+
+# ── Serve frontend static files ───────────────────────────────
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+app.mount("/css", StaticFiles(directory=os.path.join(_BASE, "css")), name="css")
+app.mount("/js",  StaticFiles(directory=os.path.join(_BASE, "js")),  name="js")
+
+
+@app.get("/logo.png")
+async def serve_logo():
+    return FileResponse(os.path.join(_BASE, "logo.png"))
+
+
+@app.get("/")
+async def serve_index():
+    return FileResponse(os.path.join(_BASE, "index.html"))

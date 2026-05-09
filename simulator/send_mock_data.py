@@ -27,13 +27,15 @@ DEVICE_ID        = "esp32_gateway_01"
 # ── State của simulator ───────────────────────────────────────
 class SimState:
     def __init__(self):
-        self.iaq   = 2.5    # Renesas IAQ Rating 1.0–5.0+
-        self.voc   = 0.8    # TVOC mg/m³ (Renesas)
-        self.eco2  = 580.0
-        self.temp  = 29.0
-        self.hum   = 65.0
-        self.etoh  = 50.0
-        self.tick  = 0
+        self.iaq      = 2.5    # Renesas IAQ Rating 1.0–5.0+
+        self.voc      = 0.8    # TVOC mg/m³ (Renesas)
+        self.eco2     = 580.0
+        self.temp     = 29.0
+        self.hum      = 65.0
+        self.etoh     = 0.08   # eToH mg/m³ raw (thang 0–0.5)
+        self.rel_iaq  = 50.0   # relative IAQ 0–500
+        self.pred_iaq = 2.5    # AI predicted IAQ 1–6
+        self.tick     = 0
 
     def walk(self, val, step, lo, hi):
         return min(hi, max(lo, val + (random.random() - 0.48) * step))
@@ -47,15 +49,17 @@ class SimState:
         spike = random.random() < 0.03
 
         iaq_step = 6 if (bad_cycle or spike) else 2
-        self.iaq  = self.walk(self.iaq,  0.4 if bad_cycle else 0.1, 1.0, 6.0)
-        self.voc  = self.walk(self.voc,  0.5 if bad_cycle else 0.1, 0.0, 15.0)
-        self.eco2 = self.walk(self.eco2, 25 if bad_cycle else 10,   400, 2000)
-        self.temp = self.walk(self.temp, 0.2,                        15,  45)
-        self.hum  = self.walk(self.hum,  0.8,                        20,  95)
-        self.etoh = self.walk(self.etoh, 4.0 if bad_cycle else 1.5,  0,  500)
+        self.iaq      = self.walk(self.iaq,      0.4  if bad_cycle else 0.1,  1.0, 6.0)
+        self.voc      = self.walk(self.voc,      0.5  if bad_cycle else 0.1,  0.0, 15.0)
+        self.eco2     = self.walk(self.eco2,     25   if bad_cycle else 10,   400, 2000)
+        self.temp     = self.walk(self.temp,     0.2,                          15,  45)
+        self.hum      = self.walk(self.hum,      0.8,                          20,  95)
+        self.etoh     = self.walk(self.etoh,     0.05 if bad_cycle else 0.01,  0.0, 0.5)
+        self.rel_iaq  = self.walk(self.rel_iaq,  15   if bad_cycle else 5,     0,   500)
+        self.pred_iaq = self.walk(self.pred_iaq, 0.4  if bad_cycle else 0.1,  1.0, 6.0)
 
         tvoc_raw = round(self.voc * 100 + random.uniform(0, 5))
-        eco2_raw = round(self.eco2 + random.uniform(-5, 5))
+        eco2_raw = round(self.eco2 + random.uniform(-5, 5), 4)
 
         # 5 mức theo Renesas IAQ Rating
         def aq_label(iaq):
@@ -66,7 +70,6 @@ class SimState:
             return "Rất kém"                     # Level 5: ≥ 5.0
 
         trend = 1 if self.iaq > 3.5 else (-1 if self.iaq < 2.0 else 0)
-        pred_iaq = max(1.0, min(6.0, self.iaq + trend * 0.5))
 
         # Thỉnh thoảng mô phỏng lỗi thiết bị
         error_code = 1 if random.random() < 0.02 else 0
@@ -76,18 +79,20 @@ class SimState:
             "device_id":                  DEVICE_ID,
             "raw_tvoc":                   tvoc_raw,
             "raw_eco2":                   eco2_raw,
-            "temperature":                round(self.temp, 1),
-            "humidity":                   round(self.hum, 1),
+            "temperature":                round(self.temp, 4),
+            "humidity":                   round(self.hum, 4),
             "filtered_tvoc":              round(tvoc_raw * 0.97),
-            "filtered_eco2":              round(eco2_raw * 0.98),
-            "normalized_tvoc":            round(min(1.0, tvoc_raw / 300), 4),
-            "normalized_eco2":            round(min(1.0, eco2_raw / 2000), 4),
-            "iaq_index":                  round(self.iaq, 2),
-            "voc_index":                  round(self.voc, 2),
-            "eco2_ppm":                   round(self.eco2),
+            "filtered_eco2":              round(eco2_raw * 0.98, 4),
+            "normalized_tvoc":            round(min(1.5, tvoc_raw / 1500), 4),
+            "normalized_eco2":            round(min(1.5, eco2_raw / 2000), 4),
+            "iaq_index":                  round(self.iaq, 4),
+            "voc_index":                  round(self.voc, 4),
+            "eco2_ppm":                   round(self.eco2, 4),
             "air_quality_label_now":      aq_label(self.iaq),
-            "air_quality_label_pred_5m":  aq_label(pred_iaq),
-            "etoh":                       round(self.etoh, 1),
+            "air_quality_label_pred_5m":  aq_label(self.pred_iaq),
+            "etoh":                       round(self.etoh, 4),
+            "rel_iaq":                    round(self.rel_iaq, 4),
+            "predicted_iaq":              round(self.pred_iaq, 4),
             "battery_status":             "external_power",
             "network_status":             "good",
             "error_code":                 error_code,

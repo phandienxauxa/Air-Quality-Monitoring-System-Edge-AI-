@@ -12,13 +12,15 @@ async def insert_sensor_data(payload: SensorPayload) -> int:
                 temperature, humidity, filtered_tvoc, filtered_eco2,
                 normalized_tvoc, normalized_eco2, iaq_index, voc_index, eco2_ppm,
                 air_quality_label_now, air_quality_label_pred_5m,
-                battery_status, network_status, error_code, etoh
+                battery_status, network_status, error_code, etoh,
+                rel_iaq, predicted_iaq
             ) VALUES (
                 :timestamp, :device_id, :raw_tvoc, :raw_eco2,
                 :temperature, :humidity, :filtered_tvoc, :filtered_eco2,
                 :normalized_tvoc, :normalized_eco2, :iaq_index, :voc_index, :eco2_ppm,
                 :air_quality_label_now, :air_quality_label_pred_5m,
-                :battery_status, :network_status, :error_code, :etoh
+                :battery_status, :network_status, :error_code, :etoh,
+                :rel_iaq, :predicted_iaq
             )
         """, payload.model_dump())
         await db.commit()
@@ -123,6 +125,8 @@ _METRIC_COLUMN_MAP: dict[str, str] = {
     "normalized_tvoc":  "normalized_tvoc",
     "normalized_eco2":  "normalized_eco2",
     "etoh":             "etoh",
+    "rel_iaq":          "rel_iaq",
+    "predicted_iaq":    "predicted_iaq",
 }
 
 _RANGE_DELTA: dict[str, timedelta] = {
